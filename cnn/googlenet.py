@@ -3,44 +3,44 @@ from torch import nn
 
 class Inception(nn.Module):
     def __init__(self, in_channels, out_channels:list):
-        super.__init__()
+        super().__init__()
         self.conv1x1 = nn.Sequential(
-                nn.Conv1d(in_channels=in_channels, out_channels=out_channels[0]),
+                nn.Conv2d(in_channels=in_channels, out_channels=out_channels[0], kernel_size=1),
                 nn.ReLU()
             )
         self.conv3x3 = nn.Sequential(
-                nn.Conv1d(in_channels=in_channels, out_channels=out_channels[1]),
+                nn.Conv2d(in_channels=in_channels, out_channels=out_channels[1], kernel_size=1),
                 nn.ReLU(),
                 nn.Conv2d(in_channels=out_channels[1], out_channels=out_channels[2], kernel_size=3, padding=1),
                 nn.ReLU()
             )
         self.conv5x5 = nn.Sequential(
-                nn.Conv1d(in_channels=in_channels, out_channels=out_channels[3]),
+                nn.Conv2d(in_channels=in_channels, out_channels=out_channels[3], kernel_size=1),
                 nn.ReLU(),
                 nn.Conv2d(in_channels=out_channels[3], out_channels=out_channels[4], kernel_size=5, padding=2),
                 nn.ReLU()
             )
         self.max_pool = nn.Sequential(
-                nn.MaxPool2d(kernel_size=3, padding=1),
+                nn.MaxPool2d(kernel_size=3, padding=1, stride=1),
                 nn.ReLU(),
-                nn.Conv1d(in_channels=in_channels, out_channels=out_channels[5]),
+                nn.Conv2d(in_channels=in_channels, out_channels=out_channels[5], kernel_size=1),
                 nn.ReLU()
             )
         
     def forward(self, x):
-        x = torch.concat([self.conv1x1(x),self.conv3x3(x),self.conv5x5(x),self.max_pool(x)], dim=-1)
+        x = torch.concat([self.conv1x1(x),self.conv3x3(x),self.conv5x5(x),self.max_pool(x)], dim=1)
         return x
 
 class AuxiliaryClassifier(nn.Module):
     def __init__(self, in_channels):
-        super.__init__()
+        super().__init__()
         self.avg_pool = nn.AvgPool2d(kernel_size=5,stride=3)
         self.conv1x1 = nn.Sequential(
-                nn.Conv1d(in_channels=in_channels, out_channels=128),
+                nn.Conv2d(in_channels=in_channels, out_channels=128, kernel_size=1),
                 nn.ReLU()
             )
         self.fc1 = nn.Sequential(
-                nn.Linear(in_features=128,out_features=1024),
+                nn.Linear(in_features=2048,out_features=1024),
                 nn.ReLU()
             )
         self.dropout = nn.Dropout(p=0.7)
@@ -48,11 +48,12 @@ class AuxiliaryClassifier(nn.Module):
                 nn.Linear(in_features=1024,out_features=1000),
                 nn.ReLU()
             )
-        self.softmax = nn.Softmax()
+        self.softmax = nn.Softmax(dim=-1)
     
     def forward(self, x):
         x = self.avg_pool(x)
         x = self.conv1x1(x)
+        x = torch.flatten(x, start_dim=1, end_dim=-1)
         x = self.fc1(x)
         x = self.dropout(x)
         x = self.fc2(x)
@@ -62,7 +63,7 @@ class AuxiliaryClassifier(nn.Module):
 
 class InitModule(nn.Module):
     def __init__(self, in_channels=3):
-        super.__init__()
+        super().__init__()
         self.conv7x7 = nn.Sequential(
                 nn.Conv2d(in_channels=in_channels, out_channels=64, kernel_size=7, stride=2, padding=3),
                 nn.ReLU(),
@@ -70,7 +71,7 @@ class InitModule(nn.Module):
                 nn.LocalResponseNorm(size=4)
             )
         self.conv3x3 = nn.Sequential(
-                nn.Conv1d(in_channels=64, out_channels=192),
+                nn.Conv2d(in_channels=64, out_channels=192, kernel_size=1),
                 nn.ReLU(),
                 nn.Conv2d(in_channels=192, out_channels=192, kernel_size=3, padding=1),
                 nn.ReLU(),
@@ -85,7 +86,7 @@ class InitModule(nn.Module):
     
 class Classifier(nn.Module):
     def __init__(self):
-        super.__init__()
+        super().__init__()
         self.avg_pool = nn.AvgPool2d(kernel_size=7)
         self.dropout = nn.Dropout(p=0.4)
         self.fc = nn.Linear(in_features=1024, out_features=1000)
@@ -94,20 +95,21 @@ class Classifier(nn.Module):
     def forward(self,x):
         x = self.avg_pool(x)
         x = self.dropout(x)
+        x = torch.flatten(x, start_dim=1, end_dim=-1)
         x = self.fc(x)
         x = self.softmax(x)
         return x
 
 class GoogLeNet(nn.Module):
-    def __init__(self):
-        super.__init__()
-        self.init_module = InitModule()
+    def __init__(self, in_channels=3):
+        super().__init__()
+        self.init_module = InitModule(in_channels=in_channels)
         self.inception3 = nn.Sequential(
             Inception(in_channels=192, out_channels=[64,96,128,16,32,32]),
             Inception(in_channels=256, out_channels=[128,128,192,32,96,64]),
             nn.MaxPool2d(kernel_size=3,stride=2,padding=1)
         )
-        self.inception4a = Inception(in_channels=480, out_channels=[192,96,108,16,48,64])
+        self.inception4a = Inception(in_channels=480, out_channels=[192,96,208,16,48,64])
         self.inception4b = Inception(in_channels=512, out_channels=[160,112,224,24,64,64])
         self.inception4c = Inception(in_channels=512, out_channels=[128,128,256,24,64,64])
         self.inception4d = Inception(in_channels=512, out_channels=[112,144,288,32,64,64])
