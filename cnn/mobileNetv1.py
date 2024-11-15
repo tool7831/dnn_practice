@@ -32,27 +32,28 @@ class ConvBlock(nn.Module):
         x = self.relu(x)
         return x
 
+# p는 이미지 resize를 하면 될 것 같아서 구현 안함
 class MobileNetv1(nn.Module):
     def __init__(self, in_channels, a=1, p=1):
         super().__init__()
-        self.conv1 = ConvBlock(in_channels=in_channels, out_channels=32, kernel_size=3, stride=2, padding=1)
-        self.dws1 = DepthwiseSeperableBlock(in_channels=32, out_channels=64, kernel_size=3)
-        self.dws2 = DepthwiseSeperableBlock(in_channels=64, out_channels=128, kernel_size=3, stride=2)
-        self.dws3 = DepthwiseSeperableBlock(in_channels=128, out_channels=128, kernel_size=3)
-        self.dws4 = DepthwiseSeperableBlock(in_channels=128, out_channels=256, kernel_size=3, stride=2)
-        self.dws5 = DepthwiseSeperableBlock(in_channels=256, out_channels=256, kernel_size=3)
-        self.dws6 = DepthwiseSeperableBlock(in_channels=256, out_channels=512, kernel_size=3, stride=2)
+        self.conv1 = ConvBlock(in_channels=in_channels, out_channels=int(32*a), kernel_size=3, stride=2, padding=1)
+        self.dws1 = DepthwiseSeperableBlock(in_channels=int(32*a), out_channels=int(64*a), kernel_size=3)
+        self.dws2 = DepthwiseSeperableBlock(in_channels=int(64*a), out_channels=int(128*a), kernel_size=3, stride=2)
+        self.dws3 = DepthwiseSeperableBlock(in_channels=int(128*a), out_channels=int(128*a), kernel_size=3)
+        self.dws4 = DepthwiseSeperableBlock(in_channels=int(128*a), out_channels=int(256*a), kernel_size=3, stride=2)
+        self.dws5 = DepthwiseSeperableBlock(in_channels=int(256*a), out_channels=int(256*a), kernel_size=3)
+        self.dws6 = DepthwiseSeperableBlock(in_channels=int(256*a), out_channels=int(512*a), kernel_size=3, stride=2)
         self.middleLayer = nn.Sequential(
-            DepthwiseSeperableBlock(in_channels=512, out_channels=512, kernel_size=3),
-            DepthwiseSeperableBlock(in_channels=512, out_channels=512, kernel_size=3),
-            DepthwiseSeperableBlock(in_channels=512, out_channels=512, kernel_size=3),
-            DepthwiseSeperableBlock(in_channels=512, out_channels=512, kernel_size=3),
-            DepthwiseSeperableBlock(in_channels=512, out_channels=512, kernel_size=3),
+            DepthwiseSeperableBlock(in_channels=int(512*a), out_channels=int(512*a), kernel_size=3),
+            DepthwiseSeperableBlock(in_channels=int(512*a), out_channels=int(512*a), kernel_size=3),
+            DepthwiseSeperableBlock(in_channels=int(512*a), out_channels=int(512*a), kernel_size=3),
+            DepthwiseSeperableBlock(in_channels=int(512*a), out_channels=int(512*a), kernel_size=3),
+            DepthwiseSeperableBlock(in_channels=int(512*a), out_channels=int(512*a), kernel_size=3),
         )
-        self.dws7 = DepthwiseSeperableBlock(in_channels=512, out_channels=1024, kernel_size=3, stride=2)
-        self.dws8 = DepthwiseSeperableBlock(in_channels=1024, out_channels=1024, kernel_size=3) # 논문에는 stride 2로 써있는데 input size와 output size를 보면 stride 1 인 것 같아서 1으로 함.
+        self.dws7 = DepthwiseSeperableBlock(in_channels=int(512*a), out_channels=int(1024*a), kernel_size=3, stride=2)
+        self.dws8 = DepthwiseSeperableBlock(in_channels=int(1024*a), out_channels=int(1024*a), kernel_size=3) # 논문에는 stride 2로 써있는데 input size와 output size를 보면 stride 1 인 것 같아서 1으로 함.
         self.avg_pool = nn.AdaptiveAvgPool2d((1,1))
-        self.fc = nn.Linear(in_features=1024, out_features=1000)
+        self.fc = nn.Linear(in_features=int(1024*a), out_features=1000)
         self.softmax = nn.Softmax(dim=-1)
         
     def forward(self,x):
